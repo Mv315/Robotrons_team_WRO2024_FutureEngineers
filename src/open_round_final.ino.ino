@@ -5,7 +5,13 @@
 // --------------------- Pin Definitions --------------------- //
 // Servo Pin
 const int SERVO_PIN = 2;
+// Initial Distance Measurements
+double initialFrontDistance = 0.0;
+double initialLeftDistance = 0.0;
+double initialRightDistance = 0.0;
 
+// Tolerance for Matching Distances (in cm)
+const double DISTANCE_TOLERANCE = 15.
 // Motor Pins
 const int IN1 = 4;
 const int IN2 = 3;
@@ -46,6 +52,7 @@ enum State {
   FOLLOW_LINE,
   TURN_LEFT,
   TURN_RIGHT,
+  RETURN_TO_START,
   STOP
 };
 
@@ -124,20 +131,21 @@ void loop() {
   // FSM Logic
   switch (currentState) {
     case FOLLOW_LINE:
-      if (frontDistance < 40) {
-        if (leftDistance < 30 && rightDistance > 80) {
+      if (frontDistance < 60) {
+        /**if (leftDistance < 30 && rightDistance > 80) {
           currentState = TURN_RIGHT;
           digitalWrite(LED_PIN, HIGH); // Optional: Indicate turning right
         }
         else if (leftDistance > 80 && rightDistance < 30) {
           currentState = TURN_LEFT;
           digitalWrite(LED_PIN, HIGH); // Optional: Indicate turning left
-        }
-        else {
-          // Either both sides are blocked or no clear path; stop or handle accordingly
-          currentState = STOP;
-        }
+        }*/
+        if(leftDistance - rightDistance > 60){
+          currentState = TURN_LEFT;
       }
+          else{
+            currentState = TURN_RIGHT;
+          }}
       else {
         // Continue moving forward with PID steering
         moveForward(160);
@@ -205,18 +213,46 @@ void loop() {
       Serial.println("TURN_RIGHT Completed");
       break;
 
+    case RETURN_TO_START: // New State Handling
+      Serial.println("Executing RETURN_TO_START");
+      // Check if current distances are within tolerance of initial distances
+      if ( (abs(frontDistance - initialFrontDistance) <= DISTANCE_TOLERANCE) &&
+           (abs(leftDistance - initialLeftDistance) <= DISTANCE_TOLERANCE) &&
+           (abs(rightDistance - initialRightDistance) <= DISTANCE_TOLERANCE) ) {
+        Serial.println("Returned to Start Position");
+        currentState = STOP;
+      }
+      else {
+        // Navigate towards the start position
+        // Example Logic: Adjust steering based on difference from initial distances
+        double errFront = initialFrontDistance - frontDistance;
+        double errLeft = initialLeftDistance - leftDistance;
+        double errRight = initialRightDistance - rightDistance;
+        PID_error = (errLeft - errRight); // Example PID error
+        steering_angle_degrees = (30 * PID_Controller(PID_error)) + std_steering_angle;
+        steering_angle_degrees = constrain(steering_angle_degrees, std_steering_angle - 45, std_steering_angle + 45);
+        turnServo(steering_angle_degrees);
+        moveForward(150);
+      }
+      break;
+    
+
     case STOP:
       Serial.println("Stopping.");
       stopMotors();
       while (1); // Halt the program
       break;
+
+   
   }
   
   // Optional: Stop after a certain number of turns
-  if (no_of_turns >= 12) {
-    currentState = STOP;
-  }
-  
+ if (no_of_turns >= 12 && currentState != RETURN_TO_START && currentState != STOP) {
+  Serial.println("Reached 12 Turns. Initiating Return to Start.");
+  resetPID(); // Reset PID before starting return
+  currentState = RETURN_TO_START;
+}
+
   delay(100); // Small delay for stability
 }
 
@@ -346,4 +382,9 @@ bool hasTurnedRight(double start, double current, double delta) {
     // This case shouldn't occur for right turns, but included for completeness
     return current >= target;
   }
+}
+// Function to reset PID variables
+void resetPID() {
+  sum_err = 0;
+  prev_err = 0;
 }
