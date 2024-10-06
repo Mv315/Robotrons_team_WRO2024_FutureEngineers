@@ -3,8 +3,8 @@ import numpy as np
 import concurrent.futures
 import time
 import subprocess
-def detect_red_histogram(image_path):
-    image = cv2.imread(image_path)
+def detect_red_histogram(image):
+    
     #image = cv2.medianBlur(image, 5)
     
     #advanced preprocessing with CLAHE approach
@@ -45,8 +45,8 @@ def detect_red_histogram(image_path):
         return True, (x, y, w, h)
     return False, None
 
-def detect_green_histogram(image_path):
-    image = cv2.imread(image_path)
+def detect_green_histogram(image):
+    
     #image = cv2.medianBlur(image,5)
     kernel = np.ones((5,5),np.uint8)
     
@@ -101,10 +101,10 @@ def main():
         if start != -1 and end != -1 and start < end:
                 jpg_data = mjpeg_buffer[start:end+2]
                 mjpeg_buffer = mjpeg_buffer[end+2:]
-                frame = cv2.imdecode(np.frombuffer(jpg_data, dtype=np.uint8), cv2.IMREAD_COLOR)
+                image = cv2.imdecode(np.frombuffer(jpg_data, dtype=np.uint8), cv2.IMREAD_COLOR)
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                future_red = executor.submit(detect_red_histogram, image_path)
-                future_green = executor.submit(detect_green_histogram, image_path)
+                future_red = executor.submit(detect_red_histogram, image)
+                future_green = executor.submit(detect_green_histogram, image)
         
                 red_detected, red_box = future_red.result()
                 green_detected, green_box = future_green.result()
