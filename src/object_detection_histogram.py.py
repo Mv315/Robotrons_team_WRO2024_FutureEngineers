@@ -126,6 +126,7 @@ def main():
             cv2.imshow('Detected Objects', image)
             cv2.waitKey(0) # Press a key to move on with sequential execution
             cv2.destroyAllWindows()
+            sleep(0.001)
 
 if __name__ == "__main__":
     main()
