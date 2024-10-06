@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import concurrent.futures
 import time
+import subprocess
 def detect_red_histogram(image_path):
     image = cv2.imread(image_path)
     #image = cv2.medianBlur(image, 5)
@@ -86,38 +87,49 @@ def detect_green_histogram(image_path):
         x, y, w, h = cv2.boundingRect(max_contour)
         return True, (x, y, w, h)
     return False, None
-def main(image_path):
-    image = cv2.imread(image_path)
-    
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        future_red = executor.submit(detect_red_histogram, image_path)
-        future_green = executor.submit(detect_green_histogram, image_path)
+def main():
+    libcamera_cmd = ['libcamera-vid', '--inline', '-t', '0', '--width', '640', '--height', '480', '--codec', 'mjpeg', '-o', '-']
+    camera_process = subprocess.Popen(libcamera_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    mjpeg_buffer = b""
+    while True:
+        buffer = camera_process.stdout.read(1024)
+        if not buffer:
+                break
+        mjpeg_buffer += buffer
+        start = mjpeg_buffer.find(b'\xff\xd8')
+        end = mjpeg_buffer.find(b'\xff\xd9')
+        if start != -1 and end != -1 and start < end:
+                jpg_data = mjpeg_buffer[start:end+2]
+                mjpeg_buffer = mjpeg_buffer[end+2:]
+                frame = cv2.imdecode(np.frombuffer(jpg_data, dtype=np.uint8), cv2.IMREAD_COLOR)
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future_red = executor.submit(detect_red_histogram, image_path)
+                future_green = executor.submit(detect_green_histogram, image_path)
         
-        red_detected, red_box = future_red.result()
-        green_detected, green_box = future_green.result()
+                red_detected, red_box = future_red.result()
+                green_detected, green_box = future_green.result()
     
-    if red_detected and not green_detected:
-        print("Red is detected")
-        cv2.rectangle(image, (red_box[0], red_box[1]), (red_box[0] + red_box[2], red_box[1] + red_box[3]), (0, 0, 255), 2)
-        cv2.putText(image, "Red", (red_box[0], red_box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
-    elif green_detected and not red_detected:
-        print("Green is detected")
-        cv2.rectangle(image, (green_box[0], green_box[1]), (green_box[0] + green_box[2], green_box[1] + green_box[3]), (0, 255, 0), 2)
-        cv2.putText(image, "Green", (green_box[0], green_box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
-    elif red_detected and green_detected:
-        print("Both red and green are detected")
-        cv2.rectangle(image, (red_box[0], red_box[1]), (red_box[0] + red_box[2], red_box[1] + red_box[3]), (0, 0, 255), 2)
-        cv2.putText(image, "Red", (red_box[0], red_box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
-        cv2.rectangle(image, (green_box[0], green_box[1]), (green_box[0] + green_box[2], green_box[1] + green_box[3]), (0, 255, 0), 2)
-        cv2.putText(image, "Green", (green_box[0], green_box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
-    else:
-        print("Neither red nor green is detected")
+            if red_detected and not green_detected:
+                print("Red is detected")
+                cv2.rectangle(image, (red_box[0], red_box[1]), (red_box[0] + red_box[2], red_box[1] + red_box[3]), (0, 0, 255), 2)
+                cv2.putText(image, "Red", (red_box[0], red_box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+            elif green_detected and not red_detected:
+                print("Green is detected")
+                cv2.rectangle(image, (green_box[0], green_box[1]), (green_box[0] + green_box[2], green_box[1] + green_box[3]), (0, 255, 0), 2)
+                cv2.putText(image, "Green", (green_box[0], green_box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+            elif red_detected and green_detected:
+                print("Both red and green are detected")
+                cv2.rectangle(image, (red_box[0], red_box[1]), (red_box[0] + red_box[2], red_box[1] + red_box[3]), (0, 0, 255), 2)
+                cv2.putText(image, "Red", (red_box[0], red_box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+                cv2.rectangle(image, (green_box[0], green_box[1]), (green_box[0] + green_box[2], green_box[1] + green_box[3]), (0, 255, 0), 2)
+                cv2.putText(image, "Green", (green_box[0], green_box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+            else:
+                print("Neither red nor green is detected")
     
-    cv2.imshow('Detected Objects', image)
-    cv2.waitKey(0) #press a key to move on with sequential execution
-    cv2.destroyAllWindows()
+            cv2.imshow('Detected Objects', image)
+            cv2.waitKey(0) #press a key to move on with sequential execution
+            cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    image_path = r"C:\Users\Venkat\OneDrive\Desktop\New folder\wrodifficult.jpeg"
-
-    main(image_path)
+    
+    main()
