@@ -6,7 +6,7 @@ from PIL import Image
 import time
 
 def get_frame(camera_process):
-    global mjpeg_buffer
+    mjpeg_buffer = b''
     while True:
         chunk = camera_process.stdout.read(1024)
         if not chunk:
@@ -21,7 +21,7 @@ def get_frame(camera_process):
 
 def calibrate():
     # Initialize libcamera-vid
-    libcamera_cmd = ['libcamera-vid', '--inline', '-t', '0', '--width', '3280', '--height', '2464', '--codec', 'mjpeg', '-o', '-']
+    libcamera_cmd = ['libcamera-vid', '--inline', '-t', '0', '--width', '640', '--height', '480', '--codec', 'mjpeg', '-o', '-']
     camera_process = subprocess.Popen(libcamera_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     # Known object size in cm
